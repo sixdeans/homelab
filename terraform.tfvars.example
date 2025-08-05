@@ -1,0 +1,27 @@
+# Proxmox Configuration
+proxmox_api_url          = "https://your-proxmox-server:8006/api2/json"
+proxmox_api_token_id     = "your-user@pam!your-token-name"
+proxmox_api_token_secret = "your-token-secret"
+proxmox_node             = "pve"
+
+# VM Configuration
+vm_name     = "caddy-proxy"
+vm_id       = 100
+vm_cores    = 2
+vm_memory   = 2048
+vm_disk_size = "20G"
+vm_storage  = "local-lvm"
+
+# Network Configuration
+vm_bridge     = "vmbr0"
+vm_ip_address = "192.168.1.100/24"
+vm_gateway    = "192.168.1.1"
+vm_dns_servers = "1.1.1.1 8.8.8.8"
+
+# Cloud-init Configuration
+cloud_init_template = 9000
+ssh_public_key      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-public-key"
+vm_user            = "debian"
+
+# VM Tags
+vm_tags = "caddy,reverse-proxy,homelab"

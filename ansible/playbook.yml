@@ -1,0 +1,65 @@
+---
+- name: Configure Caddy Reverse Proxy
+  hosts: caddy_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: ['setup']
+    
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - gnupg
+          - lsb-release
+          - ca-certificates
+          - debian-keyring
+          - debian-archive-keyring
+          - apt-transport-https
+        state: present
+      tags: ['setup']
+  
+  roles:
+    - caddy
+  
+  post_tasks:
+    - name: Ensure Caddy service is running and enabled
+      systemd:
+        name: caddy
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: ['service']
+    
+    - name: Check Caddy service status
+      command: systemctl status caddy
+      register: caddy_status
+      changed_when: false
+      tags: ['verify']
+    
+    - name: Display Caddy service status
+      debug:
+        var: caddy_status.stdout_lines
+      tags: ['verify']
+    
+    - name: Test Caddy configuration
+      command: caddy validate --config /etc/caddy/Caddyfile
+      register: caddy_config_test
+      changed_when: false
+      failed_when: caddy_config_test.rc != 0
+      tags: ['verify']
+    
+    - name: Display configuration test results
+      debug:
+        msg: "Caddy configuration is valid"
+      when: caddy_config_test.rc == 0
+      tags: ['verify']

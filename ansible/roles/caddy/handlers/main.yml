@@ -1,0 +1,29 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  listen: "reload systemd"
+
+- name: restart caddy
+  systemd:
+    name: caddy
+    state: restarted
+  listen: "restart caddy"
+
+- name: reload caddy
+  systemd:
+    name: caddy
+    state: reloaded
+  listen: "reload caddy"
+
+- name: start caddy
+  systemd:
+    name: caddy
+    state: started
+  listen: "start caddy"
+
+- name: stop caddy
+  systemd:
+    name: caddy
+    state: stopped
+  listen: "stop caddy"

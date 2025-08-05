@@ -1,0 +1,52 @@
+---
+# Domain Configuration
+domain_name: "example.com"  # Replace with your actual domain
+cloudflare_email: "your-email@example.com"  # Replace with your Cloudflare email
+cloudflare_api_token: "your-cloudflare-api-token"  # Replace with your Cloudflare API token
+
+# Service Configuration
+services:
+  mealie:
+    subdomain: "mealie"
+    upstream: "192.168.1.101:9925"  # Replace with your Mealie server IP and port
+    description: "Meal planning application"
+  
+  pihole:
+    subdomain: "pihole"
+    upstream: "192.168.1.102:80"  # Replace with your Pi-hole server IP and port
+    description: "DNS ad blocker admin interface"
+
+# Caddy Configuration
+caddy_user: "caddy"
+caddy_group: "caddy"
+caddy_config_dir: "/etc/caddy"
+caddy_data_dir: "/var/lib/caddy"
+caddy_log_dir: "/var/log/caddy"
+
+# Security Headers
+security_headers:
+  - "X-Content-Type-Options nosniff"
+  - "X-Frame-Options DENY"
+  - "X-XSS-Protection 1; mode=block"
+  - "Referrer-Policy strict-origin-when-cross-origin"
+  - "Strict-Transport-Security max-age=31536000; includeSubDomains"
+
+# Firewall Configuration
+firewall_rules:
+  - port: 22
+    proto: tcp
+    rule: allow
+    comment: "SSH"
+  - port: 80
+    proto: tcp
+    rule: allow
+    comment: "HTTP"
+  - port: 443
+    proto: tcp
+    rule: allow
+    comment: "HTTPS"
+
+# Logging Configuration
+log_level: "INFO"
+access_log: true
+error_log: true

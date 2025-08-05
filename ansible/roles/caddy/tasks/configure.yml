@@ -1,0 +1,64 @@
+---
+- name: Generate Caddyfile from template
+  template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_config_dir }}/Caddyfile"
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_group }}"
+    mode: '0644'
+    backup: yes
+  notify:
+    - reload caddy
+  tags: ['configure']
+
+- name: Create Caddy systemd service file
+  template:
+    src: caddy.service.j2
+    dest: /etc/systemd/system/caddy.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart caddy
+  tags: ['configure']
+
+- name: Create Caddy environment file
+  template:
+    src: caddy.env.j2
+    dest: /etc/default/caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart caddy
+  tags: ['configure']
+
+- name: Create log rotation configuration
+  template:
+    src: caddy.logrotate.j2
+    dest: /etc/logrotate.d/caddy
+    owner: root
+    group: root
+    mode: '0644'
+  tags: ['configure']
+
+- name: Ensure Caddy can bind to privileged ports
+  capabilities:
+    path: /usr/bin/caddy
+    capability: cap_net_bind_service+ep
+    state: present
+  tags: ['configure']
+
+- name: Validate Caddyfile syntax
+  command: caddy validate --config {{ caddy_config_dir }}/Caddyfile
+  register: caddy_validate
+  changed_when: false
+  failed_when: caddy_validate.rc != 0
+  tags: ['configure']
+
+- name: Display validation results
+  debug:
+    msg: "Caddyfile validation successful"
+  when: caddy_validate.rc == 0
+  tags: ['configure']
