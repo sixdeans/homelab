@@ -4,24 +4,45 @@ proxmox_api_token_id     = "your-user@pam!your-token-name"
 proxmox_api_token_secret = "your-token-secret"
 proxmox_node             = "pve"
 
-# VM Configuration
-vm_name     = "caddy-proxy"
-vm_id       = 100
-vm_cores    = 2
-vm_memory   = 2048
-vm_disk_size = "20G"
-vm_storage  = "local-lvm"
+# LXC Container Configuration
+container_name     = "caddy-proxy"
+container_id       = 100
+container_cores    = 2
+container_memory   = 1024
+container_disk_size = "10G"
+container_storage  = "local-lvm"
 
 # Network Configuration
-vm_bridge     = "vmbr0"
-vm_ip_address = "192.168.1.100/24"
-vm_gateway    = "192.168.1.1"
-vm_dns_servers = "1.1.1.1 8.8.8.8"
+container_bridge     = "vmbr0"
+container_ip_address = "192.168.1.100/24"
+container_gateway    = "192.168.1.1"
+container_dns_servers = "1.1.1.1 8.8.8.8"
 
-# Cloud-init Configuration
-cloud_init_template = 9000
+# LXC Template Configuration
+lxc_template = 9000
 ssh_public_key      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-public-key"
-vm_user            = "debian"
+container_user            = "debian"
 
-# VM Tags
-vm_tags = "caddy,reverse-proxy,homelab"
+# Container Features
+container_features = "nesting=1,keyctl=1,fuse=1"
+
+# Container Tags
+container_tags = "caddy,reverse-proxy,homelab"
+
+# Technitium DNS Container Configuration
+technitium_name     = "technitium-dns"
+technitium_id       = 101
+technitium_cores    = 2
+technitium_memory   = 2048
+technitium_disk_size = "10G"
+technitium_ip_address = "192.168.1.101/24"
+technitium_tags     = "technitium,dns,ad-blocking,homelab"
+
+# TinyAuth Container Configuration
+tinyauth_name     = "tinyauth"
+tinyauth_id       = 102
+tinyauth_cores    = 1
+tinyauth_memory   = 1024
+tinyauth_disk_size = "5G"
+tinyauth_ip_address = "192.168.1.102/24"
+tinyauth_tags     = "tinyauth,authentication,auth-server,homelab"

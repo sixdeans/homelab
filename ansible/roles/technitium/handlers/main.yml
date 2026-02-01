@@ -1,0 +1,11 @@
+---
+# Handlers for Technitium DNS
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart Technitium DNS
+  systemd:
+    name: technitium-dns
+    state: restarted

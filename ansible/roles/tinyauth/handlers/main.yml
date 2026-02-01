@@ -1,0 +1,11 @@
+---
+# Handlers for TinyAuth
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart TinyAuth
+  systemd:
+    name: tinyauth
+    state: restarted

@@ -1,0 +1,14 @@
+[Unit]
+Description=Technitium DNS Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/technitium
+ExecStart=/opt/technitium/DnsServer
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

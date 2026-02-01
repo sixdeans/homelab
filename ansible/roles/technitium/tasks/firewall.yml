@@ -1,0 +1,30 @@
+---
+# Firewall configuration for Technitium DNS
+
+- name: Allow DNS traffic on port 53
+  ufw:
+    rule: allow
+    port: 53
+    proto: tcp
+  when: ansible_os_family == 'Debian'
+
+- name: Allow DNS traffic on port 53 (UDP)
+  ufw:
+    rule: allow
+    port: 53
+    proto: udp
+  when: ansible_os_family == 'Debian'
+
+- name: Allow Technitium DNS web interface on port 5380
+  ufw:
+    rule: allow
+    port: 5380
+    proto: tcp
+  when: ansible_os_family == 'Debian'
+
+- name: Allow Technitium DNS web interface on port 5380 (HTTPS)
+  ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+  when: ansible_os_family == 'Debian'

@@ -63,3 +63,112 @@
         msg: "Caddy configuration is valid"
       when: caddy_config_test.rc == 0
       tags: ['verify']
+
+- name: Configure Technitium DNS Server
+  hosts: dns_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: ['setup']
+  
+  roles:
+    - technitium
+  
+  post_tasks:
+    - name: Ensure Technitium DNS service is running and enabled
+      systemd:
+        name: technitium-dns
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: ['service']
+    
+    - name: Check Technitium DNS service status
+      command: systemctl status technitium-dns
+      register: technitium_status
+      changed_when: false
+      tags: ['verify']
+    
+    - name: Display Technitium DNS service status
+      debug:
+        var: technitium_status.stdout_lines
+      tags: ['verify']
+    
+    - name: Wait for Technitium DNS web interface
+      wait_for:
+        host: localhost
+        port: 5380
+        delay: 5
+        timeout: 30
+      tags: ['verify']
+    
+    - name: Display Technitium DNS access information
+      debug:
+        msg: 
+          - "Technitium DNS Server is running"
+          - "Web Interface: http://{{ ansible_default_ipv4.address }}:5380"
+          - "DNS Server: {{ ansible_default_ipv4.address }}:53"
+      tags: ['verify']
+
+- name: Configure TinyAuth Authentication Server
+  hosts: auth_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: ['setup']
+  
+  roles:
+    - tinyauth
+  
+  post_tasks:
+    - name: Ensure TinyAuth service is running and enabled
+      systemd:
+        name: tinyauth
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: ['service']
+    
+    - name: Check TinyAuth service status
+      command: systemctl status tinyauth
+      register: tinyauth_status
+      changed_when: false
+      tags: ['verify']
+    
+    - name: Display TinyAuth service status
+      debug:
+        var: tinyauth_status.stdout_lines
+      tags: ['verify']
+    
+    - name: Wait for TinyAuth service
+      wait_for:
+        host: localhost
+        port: 8080
+        delay: 5
+        timeout: 30
+      tags: ['verify']
+    
+    - name: Display TinyAuth access information
+      debug:
+        msg: 
+          - "TinyAuth Server is running"
+          - "Internal URL: http://{{ ansible_default_ipv4.address }}:8080"
+          - "Access via Caddy reverse proxy for external access"
+          - "Configure Caddy to proxy auth.yourdomain.com to this server"
+      tags: ['verify']

@@ -1,0 +1,64 @@
+---
+# Main tasks for Technitium DNS installation and configuration
+
+- name: Install required packages
+  apt:
+    name:
+      - curl
+      - wget
+      - unzip
+      - python3-pip
+    state: present
+    update_cache: yes
+
+- name: Create Technitium DNS directory
+  file:
+    path: /opt/technitium
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Download Technitium DNS
+  get_url:
+    url: "https://download.technitium.com/dns/DnsServerPortable.zip"
+    dest: /tmp/dns-server.zip
+    mode: '0644'
+
+- name: Extract Technitium DNS
+  unarchive:
+    src: /tmp/dns-server.zip
+    dest: /opt/technitium
+    remote_src: yes
+    creates: /opt/technitium/DnsServer
+
+- name: Create systemd service for Technitium DNS
+  template:
+    src: technitium.service.j2
+    dest: /etc/systemd/system/technitium-dns.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Create configuration directory
+  file:
+    path: /etc/technitium
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure Technitium DNS
+  template:
+    src: config.json.j2
+    dest: /etc/technitium/config.json
+    mode: '0644'
+  notify: Restart Technitium DNS
+
+- name: Enable and start Technitium DNS service
+  systemd:
+    name: technitium-dns
+    enabled: yes
+    state: started
+
+- name: Configure firewall for Technitium DNS
+  include_tasks: firewall.yml

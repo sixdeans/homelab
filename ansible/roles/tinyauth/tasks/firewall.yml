@@ -1,0 +1,26 @@
+---
+# Firewall configuration for TinyAuth
+
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Allow SSH through firewall
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+
+- name: Allow TinyAuth port (internal only, accessed via Caddy)
+  ufw:
+    rule: allow
+    port: '8080'
+    proto: tcp
+    from_ip: 192.168.1.0/24
+  when: tinyauth_allow_internal | default(true)
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
