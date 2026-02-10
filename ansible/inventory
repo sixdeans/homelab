@@ -1,17 +1,17 @@
 [caddy_servers]
-caddy-proxy ansible_host=192.168.1.100 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_rsa
+caddy-proxy ansible_host=192.168.50.100 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_ed25519 ansible_ssh_common_args='-o IdentitiesOnly=yes -o StrictHostKeyChecking=no'
 
 [caddy_servers:vars]
 ansible_python_interpreter=/usr/bin/python3
 
 [dns_servers]
-dns-server ansible_host=192.168.1.101 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_rsa
+technitium-dns ansible_host=192.168.50.101 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_ed25519 ansible_ssh_common_args='-o IdentitiesOnly=yes -o StrictHostKeyChecking=no'
 
 [dns_servers:vars]
 ansible_python_interpreter=/usr/bin/python3
 
 [auth_servers]
-tinyauth ansible_host=192.168.1.102 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_rsa
+tinyauth ansible_host=192.168.50.102 ansible_user=debian ansible_ssh_private_key_file=~/.ssh/id_ed25519 ansible_ssh_common_args='-o IdentitiesOnly=yes -o StrictHostKeyChecking=no'
 
 [auth_servers:vars]
 ansible_python_interpreter=/usr/bin/python3

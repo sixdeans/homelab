@@ -62,3 +62,11 @@
     msg: "Caddyfile validation successful"
   when: caddy_validate.rc == 0
   tags: ['configure']
+
+- name: Enable and start Caddy service
+  systemd:
+    name: caddy
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  tags: ['configure']

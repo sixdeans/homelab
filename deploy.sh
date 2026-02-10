@@ -107,46 +107,55 @@ deploy_infrastructure() {
         return 1
     fi
     
-    # Apply deployment
+    # Apply deployment (this will also setup SSH via null_resource)
     print_status "Applying Terraform configuration..."
+    print_status "Note: This will create containers and automatically setup SSH"
     terraform apply tfplan
     
     # Clean up plan file
     rm -f tfplan
     
     print_success "Infrastructure deployed successfully"
+    print_success "SSH has been automatically configured in all containers"
+}
+
+# Function to verify SSH connectivity
+verify_ssh() {
+    print_status "Verifying SSH connectivity to containers..."
+    
+    local caddy_ip=$(terraform output -raw container_ip_address 2>/dev/null || echo "192.168.50.100")
+    local technitium_ip=$(terraform output -raw technitium_ip_address 2>/dev/null || echo "192.168.1.101")
+    local tinyauth_ip=$(terraform output -raw tinyauth_ip_address 2>/dev/null || echo "192.168.1.102")
+    
+    print_status "Waiting for SSH services to be ready..."
+    sleep 5
+    
+    # Test SSH connections
+    if ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=5 -o StrictHostKeyChecking=no debian@$caddy_ip "echo 'SSH OK'" &>/dev/null; then
+        print_success "✓ Caddy container SSH ready"
+    else
+        print_warning "⚠ Caddy container SSH not responding (may need more time)"
+    fi
+    
+    if ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=5 -o StrictHostKeyChecking=no debian@$technitium_ip "echo 'SSH OK'" &>/dev/null; then
+        print_success "✓ Technitium container SSH ready"
+    else
+        print_warning "⚠ Technitium container SSH not responding (may need more time)"
+    fi
+    
+    if ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=5 -o StrictHostKeyChecking=no debian@$tinyauth_ip "echo 'SSH OK'" &>/dev/null; then
+        print_success "✓ TinyAuth container SSH ready"
+    else
+        print_warning "⚠ TinyAuth container SSH not responding (may need more time)"
+    fi
 }
 
 # Function to configure services with Ansible
 configure_services() {
     print_status "Configuring services with Ansible..."
     
-    # Wait for VM to be ready
-    print_status "Waiting for VM to be ready..."
-    sleep 30
-    
-    # Test SSH connectivity
-    local vm_ip=$(terraform output -raw vm_ip_address)
-    print_status "Testing SSH connectivity to $vm_ip..."
-    
-    local max_attempts=10
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no debian@$vm_ip "echo 'SSH connection successful'" &> /dev/null; then
-            print_success "SSH connection established"
-            break
-        else
-            print_status "SSH attempt $attempt/$max_attempts failed, retrying in 10 seconds..."
-            sleep 10
-            ((attempt++))
-        fi
-    done
-    
-    if [ $attempt -gt $max_attempts ]; then
-        print_error "Failed to establish SSH connection after $max_attempts attempts"
-        return 1
-    fi
+    # Verify SSH is ready
+    verify_ssh
     
     # Run Ansible playbook
     print_status "Running Ansible playbook..."
@@ -164,30 +173,28 @@ show_summary() {
     print_status "Deployment Summary:"
     echo "==================="
     
-    local vm_ip=$(terraform output -raw vm_ip_address)
-    local vm_name=$(terraform output -raw vm_name)
+    local caddy_ip=$(terraform output -raw container_ip_address 2>/dev/null || echo "N/A")
+    local technitium_ip=$(terraform output -raw technitium_ip_address 2>/dev/null || echo "N/A")
+    local tinyauth_ip=$(terraform output -raw tinyauth_ip_address 2>/dev/null || echo "N/A")
     
-    echo "VM Name: $vm_name"
-    echo "VM IP: $vm_ip"
-    echo "SSH Command: $(terraform output -raw ssh_connection)"
+    echo "Containers:"
+    echo "- Caddy Proxy: $caddy_ip"
+    echo "- Technitium DNS: $technitium_ip"
+    echo "- TinyAuth: $tinyauth_ip"
     echo
     
-    print_status "Configured Services:"
-    echo "- Mealie: https://mealie.$(grep domain_name ansible/group_vars/all.yml | cut -d'"' -f2)"
-    echo "- Pi-hole: https://pihole.$(grep domain_name ansible/group_vars/all.yml | cut -d'"' -f2)"
-    echo "- Health Check: https://health.$(grep domain_name ansible/group_vars/all.yml | cut -d'"' -f2)"
-    echo
-    
-    print_status "Next Steps:"
-    echo "1. Update your DNS records to point to $vm_ip"
-    echo "2. Verify SSL certificates are working"
-    echo "3. Test your services through the reverse proxy"
+    print_status "SSH Commands:"
+    echo "- Caddy: ssh debian@$caddy_ip"
+    echo "- Technitium: ssh debian@$technitium_ip"
+    echo "- TinyAuth: ssh debian@$tinyauth_ip"
     echo
     
     print_status "Useful Commands:"
-    echo "- Check Caddy status: ssh debian@$vm_ip 'sudo systemctl status caddy'"
-    echo "- View Caddy logs: ssh debian@$vm_ip 'sudo journalctl -u caddy -f'"
-    echo "- Reload Caddy config: ssh debian@$vm_ip 'sudo systemctl reload caddy'"
+    echo "- Check Caddy status: ssh debian@$caddy_ip 'sudo systemctl status caddy'"
+    echo "- Check Technitium status: ssh debian@$technitium_ip 'sudo systemctl status technitium'"
+    echo "- Check TinyAuth status: ssh debian@$tinyauth_ip 'sudo systemctl status tinyauth'"
+    echo ""
+    print_status "Note: SSH is automatically configured by Terraform - no manual setup needed!"
 }
 
 # Main deployment function

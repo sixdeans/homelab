@@ -3,7 +3,7 @@ terraform {
   required_providers {
     proxmox = {
       source  = "telmate/proxmox"
-      version = "~> 2.9"
+      version = "3.0.2-rc07"
     }
   }
 }
@@ -18,10 +18,10 @@ provider "proxmox" {
 
 # Create the Caddy reverse proxy LXC container
 resource "proxmox_lxc" "caddy_proxy" {
-  name        = var.container_name
+  hostname    = var.container_name
   target_node = var.proxmox_node
   vmid        = var.container_id
-  ostemplate  = "local:vztmpl/debian-13-standard_13.5-1_amd64.tar.zst"
+  ostemplate  = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
   
   # Container Hardware Configuration
   cores   = var.container_cores
@@ -39,12 +39,16 @@ resource "proxmox_lxc" "caddy_proxy" {
     name    = "eth0"
     bridge  = var.container_bridge
     ip      = var.container_ip_address
-    gateway = var.container_gateway
+    gw      = var.container_gateway
     firewall = false
   }
   
   # Container Features
-  features = var.container_features
+  # features {
+  #   nesting=true
+  #   keyctl=true
+  #   fuse=true
+  # } 
   
   # DNS Configuration
   nameserver = var.container_dns_servers
@@ -55,6 +59,7 @@ resource "proxmox_lxc" "caddy_proxy" {
   
   # Container Options
   onboot   = true
+  start    = true
   startup  = "order=1"
   tags     = var.container_tags
   
@@ -68,30 +73,28 @@ resource "proxmox_lxc" "caddy_proxy" {
       rootfs,
     ]
   }
+}
+
+# Setup SSH in Caddy container
+resource "null_resource" "setup_ssh_caddy" {
+  depends_on = [proxmox_lxc.caddy_proxy]
   
-  # Wait for container to be ready
-  provisioner "remote-exec" {
-    inline = [
-      "apt-get update",
-      "apt-get install -y python3 python3-pip",
-    ]
-    
-    connection {
-      type        = "ssh"
-      user        = var.container_user
-      private_key = file("~/.ssh/id_rsa")
-      host        = split("/", var.container_ip_address)[0]
-      timeout     = "5m"
-    }
+  triggers = {
+    container_id = proxmox_lxc.caddy_proxy.vmid
+  }
+  
+  provisioner "local-exec" {
+    command = "ssh -o StrictHostKeyChecking=no root@${var.proxmox_host} 'echo Waiting for container network... && sleep 10 && for i in 1 2 3 4 5; do pct exec ${var.container_id} -- ping -c 1 1.1.1.1 >/dev/null 2>&1 && break || sleep 3; done && echo Network ready && pct exec ${var.container_id} -- useradd -m -s /bin/bash debian 2>/dev/null || true && pct exec ${var.container_id} -- bash -c \"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sudo locales\" && pct exec ${var.container_id} -- bash -c \"echo en_US.UTF-8 UTF-8 > /etc/locale.gen && locale-gen\" && pct exec ${var.container_id} -- systemctl enable ssh && pct exec ${var.container_id} -- systemctl start ssh && pct exec ${var.container_id} -- usermod -aG sudo debian && pct exec ${var.container_id} -- bash -c \"echo debian ALL=\\(ALL\\) NOPASSWD:ALL > /etc/sudoers.d/debian\" && pct exec ${var.container_id} -- chmod 440 /etc/sudoers.d/debian && pct exec ${var.container_id} -- mkdir -p /home/debian/.ssh && pct exec ${var.container_id} -- chmod 700 /home/debian/.ssh && pct exec ${var.container_id} -- bash -c \"echo ${var.ssh_public_key} > /home/debian/.ssh/authorized_keys\" && pct exec ${var.container_id} -- chmod 600 /home/debian/.ssh/authorized_keys && pct exec ${var.container_id} -- chown -R debian:debian /home/debian/.ssh && echo Container ${var.container_id} setup complete'"
+    interpreter = ["bash", "-c"]
   }
 }
 
 # Create the Technitium DNS LXC container
 resource "proxmox_lxc" "technitium_dns" {
-  name        = var.technitium_name
+  hostname       = var.technitium_name
   target_node = var.proxmox_node
   vmid        = var.technitium_id
-  ostemplate  = "local:vztmpl/debian-13-standard_13.5-1_amd64.tar.zst"
+  ostemplate  = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
   
   # Container Hardware Configuration
   cores   = var.technitium_cores
@@ -109,12 +112,16 @@ resource "proxmox_lxc" "technitium_dns" {
     name    = "eth0"
     bridge  = var.container_bridge
     ip      = var.technitium_ip_address
-    gateway = var.container_gateway
+    gw      = var.container_gateway
     firewall = false
   }
   
   # Container Features
-  features = var.container_features
+  # features {
+  #   nesting=true
+  #   keyctl=true
+  #   fuse=true
+  # } 
   
   # DNS Configuration
   nameserver = var.container_dns_servers
@@ -125,6 +132,7 @@ resource "proxmox_lxc" "technitium_dns" {
   
   # Container Options
   onboot   = true
+  start    = true
   startup  = "order=2"
   tags     = var.technitium_tags
   
@@ -138,30 +146,28 @@ resource "proxmox_lxc" "technitium_dns" {
       rootfs,
     ]
   }
+}
+
+# Setup SSH in Technitium container
+resource "null_resource" "setup_ssh_technitium" {
+  depends_on = [proxmox_lxc.technitium_dns]
   
-  # Wait for container to be ready
-  provisioner "remote-exec" {
-    inline = [
-      "apt-get update",
-      "apt-get install -y python3 python3-pip",
-    ]
-    
-    connection {
-      type        = "ssh"
-      user        = var.container_user
-      private_key = file("~/.ssh/id_rsa")
-      host        = split("/", var.technitium_ip_address)[0]
-      timeout     = "5m"
-    }
+  triggers = {
+    container_id = proxmox_lxc.technitium_dns.vmid
+  }
+  
+  provisioner "local-exec" {
+    command = "ssh -o StrictHostKeyChecking=no root@${var.proxmox_host} 'echo Waiting for container network... && sleep 10 && for i in 1 2 3 4 5; do pct exec ${var.technitium_id} -- ping -c 1 1.1.1.1 >/dev/null 2>&1 && break || sleep 3; done && echo Network ready && pct exec ${var.technitium_id} -- useradd -m -s /bin/bash debian 2>/dev/null || true && pct exec ${var.technitium_id} -- bash -c \"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sudo locales\" && pct exec ${var.technitium_id} -- bash -c \"echo en_US.UTF-8 UTF-8 > /etc/locale.gen && locale-gen\" && pct exec ${var.technitium_id} -- systemctl enable ssh && pct exec ${var.technitium_id} -- systemctl start ssh && pct exec ${var.technitium_id} -- usermod -aG sudo debian && pct exec ${var.technitium_id} -- bash -c \"echo debian ALL=\\(ALL\\) NOPASSWD:ALL > /etc/sudoers.d/debian\" && pct exec ${var.technitium_id} -- chmod 440 /etc/sudoers.d/debian && pct exec ${var.technitium_id} -- mkdir -p /home/debian/.ssh && pct exec ${var.technitium_id} -- chmod 700 /home/debian/.ssh && pct exec ${var.technitium_id} -- bash -c \"echo ${var.ssh_public_key} > /home/debian/.ssh/authorized_keys\" && pct exec ${var.technitium_id} -- chmod 600 /home/debian/.ssh/authorized_keys && pct exec ${var.technitium_id} -- chown -R debian:debian /home/debian/.ssh && echo Container ${var.technitium_id} setup complete'"
+    interpreter = ["bash", "-c"]
   }
 }
 
 # Create the TinyAuth LXC container
 resource "proxmox_lxc" "tinyauth" {
-  name        = var.tinyauth_name
+  hostname       = var.tinyauth_name
   target_node = var.proxmox_node
   vmid        = var.tinyauth_id
-  ostemplate  = "local:vztmpl/debian-13-standard_13.5-1_amd64.tar.zst"
+  ostemplate  = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
   
   # Container Hardware Configuration
   cores   = var.tinyauth_cores
@@ -179,12 +185,16 @@ resource "proxmox_lxc" "tinyauth" {
     name    = "eth0"
     bridge  = var.container_bridge
     ip      = var.tinyauth_ip_address
-    gateway = var.container_gateway
+    gw      = var.container_gateway
     firewall = false
   }
   
   # Container Features
-  features = var.container_features
+  # features {
+  #   nesting=true
+  #   keyctl=true
+  #   fuse=true
+  # } 
   
   # DNS Configuration
   nameserver = var.container_dns_servers
@@ -195,6 +205,7 @@ resource "proxmox_lxc" "tinyauth" {
   
   # Container Options
   onboot   = true
+  start    = true
   startup  = "order=3"
   tags     = var.tinyauth_tags
   
@@ -208,21 +219,19 @@ resource "proxmox_lxc" "tinyauth" {
       rootfs,
     ]
   }
+}
+
+# Setup SSH in TinyAuth container
+resource "null_resource" "setup_ssh_tinyauth" {
+  depends_on = [proxmox_lxc.tinyauth]
   
-  # Wait for container to be ready
-  provisioner "remote-exec" {
-    inline = [
-      "apt-get update",
-      "apt-get install -y python3 python3-pip",
-    ]
-    
-    connection {
-      type        = "ssh"
-      user        = var.container_user
-      private_key = file("~/.ssh/id_rsa")
-      host        = split("/", var.tinyauth_ip_address)[0]
-      timeout     = "5m"
-    }
+  triggers = {
+    container_id = proxmox_lxc.tinyauth.vmid
+  }
+  
+  provisioner "local-exec" {
+    command = "ssh -o StrictHostKeyChecking=no root@${var.proxmox_host} 'echo Waiting for container network... && sleep 10 && for i in 1 2 3 4 5; do pct exec ${var.tinyauth_id} -- ping -c 1 1.1.1.1 >/dev/null 2>&1 && break || sleep 3; done && echo Network ready && pct exec ${var.tinyauth_id} -- useradd -m -s /bin/bash debian 2>/dev/null || true && pct exec ${var.tinyauth_id} -- bash -c \"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sudo locales\" && pct exec ${var.tinyauth_id} -- bash -c \"echo en_US.UTF-8 UTF-8 > /etc/locale.gen && locale-gen\" && pct exec ${var.tinyauth_id} -- systemctl enable ssh && pct exec ${var.tinyauth_id} -- systemctl start ssh && pct exec ${var.tinyauth_id} -- usermod -aG sudo debian && pct exec ${var.tinyauth_id} -- bash -c \"echo debian ALL=\\(ALL\\) NOPASSWD:ALL > /etc/sudoers.d/debian\" && pct exec ${var.tinyauth_id} -- chmod 440 /etc/sudoers.d/debian && pct exec ${var.tinyauth_id} -- mkdir -p /home/debian/.ssh && pct exec ${var.tinyauth_id} -- chmod 700 /home/debian/.ssh && pct exec ${var.tinyauth_id} -- bash -c \"echo ${var.ssh_public_key} > /home/debian/.ssh/authorized_keys\" && pct exec ${var.tinyauth_id} -- chmod 600 /home/debian/.ssh/authorized_keys && pct exec ${var.tinyauth_id} -- chown -R debian:debian /home/debian/.ssh && echo Container ${var.tinyauth_id} setup complete'"
+    interpreter = ["bash", "-c"]
   }
 }
 
@@ -239,7 +248,7 @@ output "container_id" {
 
 output "container_name" {
   description = "Container name"
-  value       = proxmox_lxc.caddy_proxy.name
+  value       = proxmox_lxc.caddy_proxy.hostname
 }
 
 output "ssh_connection" {
@@ -260,7 +269,7 @@ output "technitium_id" {
 
 output "technitium_name" {
   description = "Technitium DNS container name"
-  value       = proxmox_lxc.technitium_dns.name
+  value       = proxmox_lxc.technitium_dns.hostname
 }
 
 output "technitium_ssh_connection" {
@@ -281,7 +290,7 @@ output "tinyauth_id" {
 
 output "tinyauth_name" {
   description = "TinyAuth container name"
-  value       = proxmox_lxc.tinyauth.name
+  value       = proxmox_lxc.tinyauth.hostname
 }
 
 output "tinyauth_ssh_connection" {

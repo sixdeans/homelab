@@ -1,26 +1,119 @@
 ---
-- name: Add Caddy GPG key
-  apt_key:
-    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+- name: Install required packages for xcaddy
+  apt:
+    name:
+      - debian-keyring
+      - debian-archive-keyring
+      - apt-transport-https
+      - curl
+      - gpg
+      - gpg-agent
+      - golang-go
     state: present
   tags: ['install']
 
-- name: Add Caddy repository
-  apt_repository:
-    repo: "deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
-    state: present
-    filename: caddy-stable
+- name: Download Caddy xcaddy GPG key
+  get_url:
+    url: https://dl.cloudsmith.io/public/caddy/xcaddy/gpg.key
+    dest: /tmp/caddy-xcaddy-gpg.key
+    mode: '0644'
   tags: ['install']
 
-- name: Update apt cache after adding repository
+- name: Convert GPG key to dearmor format
+  command: gpg --dearmor -o /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg /tmp/caddy-xcaddy-gpg.key
+  args:
+    creates: /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
+  tags: ['install']
+
+- name: Clean up temporary GPG key file
+  file:
+    path: /tmp/caddy-xcaddy-gpg.key
+    state: absent
+  tags: ['install']
+
+- name: Add Caddy xcaddy repository
+  get_url:
+    url: https://dl.cloudsmith.io/public/caddy/xcaddy/debian.deb.txt
+    dest: /etc/apt/sources.list.d/caddy-xcaddy.list
+    mode: '0644'
+  tags: ['install']
+
+- name: Update apt cache after adding xcaddy repository
   apt:
     update_cache: yes
   tags: ['install']
 
-- name: Install Caddy
+- name: Install xcaddy
   apt:
-    name: caddy
+    name: xcaddy
     state: present
+  tags: ['install']
+
+- name: Create build directory for xcaddy
+  file:
+    path: /tmp/caddy-build
+    state: directory
+    mode: '0755'
+  tags: ['install']
+
+- name: Build Caddy with Cloudflare plugin using xcaddy
+  command: xcaddy build --output /tmp/caddy-build/caddy --with github.com/caddy-dns/cloudflare
+  args:
+    creates: /tmp/caddy-build/caddy
+  tags: ['install']
+
+- name: Verify Caddy binary was built
+  stat:
+    path: /tmp/caddy-build/caddy
+  register: caddy_built
+  tags: ['install']
+
+- name: Move built Caddy binary to system location
+  copy:
+    src: /tmp/caddy-build/caddy
+    dest: /usr/bin/caddy
+    mode: '0755'
+    remote_src: yes
+  when: caddy_built.stat.exists
+  tags: ['install']
+
+- name: Verify Caddy binary in system location
+  stat:
+    path: /usr/bin/caddy
+  register: caddy_binary
+  tags: ['install']
+
+- name: Display Caddy binary status
+  debug:
+    msg: "Caddy binary installed successfully at /usr/bin/caddy"
+  when: caddy_binary.stat.exists
+  tags: ['install']
+
+- name: Verify Cloudflare plugin is available
+  command: caddy list-modules | grep cloudflare
+  register: cloudflare_check
+  changed_when: false
+  failed_when: false
+  tags: ['install']
+
+- name: Display Cloudflare plugin status
+  debug:
+    msg: "Cloudflare DNS plugin is available"
+  when: cloudflare_check.rc == 0
+  tags: ['install']
+
+- name: Display all available modules for debugging
+  command: caddy list-modules
+  register: all_modules
+  changed_when: false
+  failed_when: false
+  when: cloudflare_check.rc != 0
+  tags: ['install']
+
+- name: Debug modules when Cloudflare not found
+  debug:
+    msg: "Available modules: {{ all_modules.stdout_lines }}"
+  when: cloudflare_check.rc != 0
   tags: ['install']
 
 - name: Create caddy user
@@ -44,6 +137,16 @@
     - "{{ caddy_config_dir }}"
     - "{{ caddy_data_dir }}"
     - "{{ caddy_log_dir }}"
+  tags: ['install']
+
+- name: Ensure log directory has correct permissions
+  file:
+    path: "{{ caddy_log_dir }}"
+    state: directory
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_group }}"
+    mode: '0755'
+    recurse: yes
   tags: ['install']
 
 - name: Set ownership of Caddy data directory

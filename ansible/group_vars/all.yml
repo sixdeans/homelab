@@ -1,20 +1,16 @@
 ---
 # Domain Configuration
-domain_name: "example.com"  # Replace with your actual domain
-cloudflare_email: "your-email@example.com"  # Replace with your Cloudflare email
-cloudflare_api_token: "your-cloudflare-api-token"  # Replace with your Cloudflare API token
+domain_name: "sixdeans.xyz"  # Replace with your actual domain
+cloudflare_email: "mathew@sixdeans.com"  # Replace with your Cloudflare email
+cloudflare_api_token: "SHD0UwOF8cWdXaUMNe7X0OWWexgsxw2ueWo1EB5G"  # Replace with your Cloudflare API token
 
 # Service Configuration
 services:
   mealie:
     subdomain: "mealie"
-    upstream: "192.168.1.101:9925"  # Replace with your Mealie server IP and port
+    upstream: "192.168.1.56:9925"  # Replace with your Mealie server IP and port
     description: "Meal planning application"
   
-  pihole:
-    subdomain: "pihole"
-    upstream: "192.168.1.102:80"  # Replace with your Pi-hole server IP and port
-    description: "DNS ad blocker admin interface"
 
 # Caddy Configuration
 caddy_user: "caddy"

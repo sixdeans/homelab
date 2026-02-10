@@ -14,7 +14,6 @@ crash.*.log
 .vault_pass
 ansible.cfg
 ansible/group_vars/
-!ansible/group_vars/all.yml
 
 # SSH keys
 *.pem

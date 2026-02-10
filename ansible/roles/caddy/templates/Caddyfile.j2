@@ -1,10 +1,12 @@
 # Global options
 {
-	# Email for Let's Encrypt (fallback if Cloudflare fails)
+	# Email for Let's Encrypt
 	email {{ cloudflare_email }}
 	
 	# Use Cloudflare DNS for ACME challenges
-	acme_dns cloudflare {{ cloudflare_api_token }}
+	acme_dns cloudflare {
+		api_token {{ cloudflare_api_token }}
+	}
 	
 	# Global log settings
 	log {
@@ -15,13 +17,6 @@
 		}
 		format json
 		level {{ log_level }}
-	}
-	
-	# Security headers
-	header {
-{% for header in security_headers %}
-		{{ header }}
-{% endfor %}
 	}
 }
 
@@ -58,10 +53,15 @@ http:// {
 		format json
 	}
 	
-	# Additional security headers for this service
+	# Security headers for this service
 	header {
 		# Remove server information
 		-Server
+		
+		# Security headers from variables
+{% for header in security_headers %}
+		{{ header }}
+{% endfor %}
 		
 		# Content Security Policy (adjust as needed for your services)
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"

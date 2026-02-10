@@ -21,6 +21,11 @@ variable "proxmox_node" {
   default     = "pve"
 }
 
+variable "proxmox_host" {
+  description = "Proxmox host IP or hostname for SSH access (used by null_resource provisioners)"
+  type        = string
+}
+
 # LXC Container Configuration Variables
 variable "container_name" {
   description = "Name of the LXC container"
