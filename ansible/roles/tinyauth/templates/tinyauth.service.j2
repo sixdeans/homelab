@@ -6,18 +6,12 @@ After=network.target
 Type=simple
 User=tinyauth
 Group=tinyauth
-WorkingDirectory=/opt/tinyauth/app
-Environment="PATH=/opt/tinyauth/venv/bin"
-ExecStart=/opt/tinyauth/venv/bin/python -m tinyauth --config /etc/tinyauth/config.yml
+WorkingDirectory=/opt/tinyauth
+ExecStart=/opt/tinyauth/bin/tinyauth-start.sh
 Restart=always
 RestartSec=10
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/tinyauth
+StandardOutput=append:/var/log/tinyauth.log
+StandardError=append:/var/log/tinyauth.log
 
 [Install]
 WantedBy=multi-user.target

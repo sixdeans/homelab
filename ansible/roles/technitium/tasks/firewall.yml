@@ -1,6 +1,11 @@
 ---
 # Firewall configuration for Technitium DNS
-
+- name: Install UFW (Uncomplicated Firewall)
+  apt:
+    name: ufw
+    state: present
+  tags: ['firewall']
+  
 - name: Allow DNS traffic on port 53
   ufw:
     rule: allow

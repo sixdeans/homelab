@@ -1,16 +1,6 @@
 ---
 # Main tasks for TinyAuth installation and configuration
 
-- name: Install required packages
-  apt:
-    name:
-      - python3
-      - python3-pip
-      - python3-venv
-      - git
-    state: present
-    update_cache: yes
-
 - name: Create TinyAuth user
   user:
     name: tinyauth
@@ -19,25 +9,37 @@
     home: /opt/tinyauth
     create_home: yes
 
-- name: Clone TinyAuth repository
-  git:
-    repo: 'https://github.com/kapetan/tinyauth.git'
-    dest: /opt/tinyauth/app
-    version: master
-    force: yes
-  become_user: tinyauth
+- name: Create TinyAuth binary directory
+  file:
+    path: /opt/tinyauth/bin
+    state: directory
+    owner: tinyauth
+    group: tinyauth
+    mode: '0755'
 
-- name: Create Python virtual environment
-  command: python3 -m venv /opt/tinyauth/venv
-  args:
-    creates: /opt/tinyauth/venv/bin/activate
-  become_user: tinyauth
+- name: Detect system architecture
+  command: dpkg --print-architecture
+  register: system_arch
+  changed_when: false
 
-- name: Install TinyAuth dependencies
-  pip:
-    requirements: /opt/tinyauth/app/requirements.txt
-    virtualenv: /opt/tinyauth/venv
-  become_user: tinyauth
+- name: Set TinyAuth binary name based on architecture
+  set_fact:
+    tinyauth_binary: "{{ 'tinyauth-arm64' if system_arch.stdout == 'arm64' else 'tinyauth-amd64' }}"
+
+- name: Download TinyAuth binary
+  get_url:
+    url: "https://github.com/steveiliop56/tinyauth/releases/download/v4.1.0/{{ tinyauth_binary }}"
+    dest: /opt/tinyauth/bin/tinyauth
+    mode: '0755'
+    owner: tinyauth
+    group: tinyauth
+
+- name: Verify TinyAuth binary is executable
+  file:
+    path: /opt/tinyauth/bin/tinyauth
+    mode: '0755'
+    owner: tinyauth
+    group: tinyauth
 
 - name: Create TinyAuth configuration directory
   file:
@@ -55,13 +57,30 @@
     group: tinyauth
     mode: '0755'
 
-- name: Create TinyAuth configuration file
-  template:
-    src: config.yml.j2
-    dest: /etc/tinyauth/config.yml
+- name: Create TinyAuth resources directory
+  file:
+    path: /var/lib/tinyauth/resources
+    state: directory
     owner: tinyauth
     group: tinyauth
-    mode: '0640'
+    mode: '0755'
+
+- name: Create TinyAuth .env file
+  template:
+    src: tinyauth-dot-env.j2
+    dest: /opt/tinyauth/.env
+    owner: tinyauth
+    group: tinyauth
+    mode: '0600'
+  notify: Restart TinyAuth
+
+- name: Create TinyAuth startup script
+  template:
+    src: tinyauth-start.sh.j2
+    dest: /opt/tinyauth/bin/tinyauth-start.sh
+    owner: tinyauth
+    group: tinyauth
+    mode: '0755'
   notify: Restart TinyAuth
 
 - name: Create systemd service for TinyAuth
@@ -71,12 +90,70 @@
     mode: '0644'
   notify: Reload systemd
 
+- name: Test TinyAuth binary manually
+  shell: |
+    cd /opt/tinyauth
+    sudo -u tinyauth /opt/tinyauth/bin/tinyauth --help 2>&1 || true
+  register: tinyauth_help
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display TinyAuth help output
+  debug:
+    msg: "{{ tinyauth_help.stdout_lines }}"
+
+- name: Test TinyAuth startup with env file
+  shell: |
+    cd /opt/tinyauth
+    timeout 3 sudo -u tinyauth bash -c 'source /etc/tinyauth/tinyauth.env && /opt/tinyauth/bin/tinyauth' 2>&1 || true
+  register: tinyauth_test
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display TinyAuth test output
+  debug:
+    msg: "{{ tinyauth_test.stdout_lines }}"
+
+- name: Check environment file content
+  command: cat /etc/tinyauth/tinyauth.env
+  register: env_content
+  changed_when: false
+
+- name: Display environment file
+  debug:
+    msg: "{{ env_content.stdout_lines }}"
+
 - name: Enable and start TinyAuth service
   systemd:
     name: tinyauth
     enabled: yes
     state: started
     daemon_reload: yes
+  ignore_errors: yes
+
+- name: Wait a moment for service to attempt start
+  pause:
+    seconds: 3
+
+- name: Check TinyAuth service logs
+  command: journalctl -u tinyauth -n 50 --no-pager
+  register: tinyauth_logs
+  changed_when: false
+
+- name: Display TinyAuth service logs
+  debug:
+    msg: "{{ tinyauth_logs.stdout_lines }}"
+
+- name: Check TinyAuth log file
+  command: cat /var/log/tinyauth.log
+  register: tinyauth_file_logs
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display TinyAuth log file
+  debug:
+    msg: "{{ tinyauth_file_logs.stdout_lines }}"
+  when: tinyauth_file_logs.rc == 0
 
 - name: Configure firewall for TinyAuth
   include_tasks: firewall.yml

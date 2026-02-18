@@ -8,6 +8,8 @@
       - wget
       - unzip
       - python3-pip
+      - libicu-dev
+      - gpg
     state: present
     update_cache: yes
 
@@ -19,18 +21,52 @@
     group: root
     mode: '0755'
 
+- name: Add Microsoft package repository key
+  get_url:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    dest: /tmp/microsoft.asc
+
+- name: Install Microsoft GPG key
+  command: gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg /tmp/microsoft.asc
+  args:
+    creates: /usr/share/keyrings/microsoft-prod.gpg
+
+- name: Add Microsoft package repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main"
+    state: present
+    filename: microsoft-prod
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install .NET Runtime via apt
+  apt:
+    name:
+      - aspnetcore-runtime-9.0
+    state: present
+
 - name: Download Technitium DNS
   get_url:
-    url: "https://download.technitium.com/dns/DnsServerPortable.zip"
-    dest: /tmp/dns-server.zip
+    url: "https://download.technitium.com/dns/DnsServerPortable.tar.gz"
+    dest: /tmp/dns-server.tar.gz
     mode: '0644'
 
 - name: Extract Technitium DNS
   unarchive:
-    src: /tmp/dns-server.zip
+    src: /tmp/dns-server.tar.gz
     dest: /opt/technitium
     remote_src: yes
-    creates: /opt/technitium/DnsServer
+
+- name: List /opt/technitium contents after extraction
+  command: ls -la /opt/technitium/
+  register: technitium_contents
+  changed_when: false
+
+- name: Display technitium directory contents
+  debug:
+    msg: "{{ technitium_contents.stdout_lines }}"
 
 - name: Create systemd service for Technitium DNS
   template:
@@ -39,20 +75,58 @@
     mode: '0644'
   notify: Reload systemd
 
-- name: Create configuration directory
-  file:
-    path: /etc/technitium
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-
 - name: Configure Technitium DNS
   template:
     src: config.json.j2
-    dest: /etc/technitium/config.json
+    dest: /opt/technitium/config.json
     mode: '0644'
   notify: Restart Technitium DNS
+
+- name: Verify DnsServerApp.dll exists
+  stat:
+    path: /opt/technitium/DnsServerApp.dll
+  register: dll_check
+
+- name: Display DLL status
+  debug:
+    msg: "DnsServerApp.dll exists: {{ dll_check.stat.exists }}"
+
+- name: Check .NET runtime version
+  command: dotnet --list-runtimes
+  register: dotnet_runtimes
+  changed_when: false
+
+- name: Display .NET runtimes
+  debug:
+    msg: "{{ dotnet_runtimes.stdout_lines }}"
+
+- name: Test Technitium DNS startup manually
+  shell: |
+    cd /opt/technitium
+    timeout 5 dotnet DnsServerApp.dll 2>&1 || true
+  register: manual_test
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display manual test output
+  debug:
+    msg: "{{ manual_test.stdout_lines }}"
+
+- name: Check for runtimeconfig.json
+  stat:
+    path: /opt/technitium/DnsServerApp.runtimeconfig.json
+  register: runtimeconfig_check
+
+- name: Display runtimeconfig.json content if exists
+  command: cat /opt/technitium/DnsServerApp.runtimeconfig.json
+  register: runtimeconfig_content
+  when: runtimeconfig_check.stat.exists
+  changed_when: false
+
+- name: Show runtimeconfig content
+  debug:
+    msg: "{{ runtimeconfig_content.stdout }}"
+  when: runtimeconfig_check.stat.exists
 
 - name: Enable and start Technitium DNS service
   systemd:

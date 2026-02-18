@@ -8,22 +8,26 @@
   systemd:
     name: caddy
     state: restarted
+    timeout_seconds: 30
   listen: "restart caddy"
 
 - name: reload caddy
   systemd:
     name: caddy
-    state: reloaded
+    state: restarted
+    timeout_seconds: 30
   listen: "reload caddy"
 
 - name: start caddy
   systemd:
     name: caddy
     state: started
+    timeout_seconds: 30
   listen: "start caddy"
 
 - name: stop caddy
   systemd:
     name: caddy
     state: stopped
+    timeout_seconds: 30
   listen: "stop caddy"

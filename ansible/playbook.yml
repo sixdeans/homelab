@@ -159,7 +159,7 @@
     - name: Wait for TinyAuth service
       wait_for:
         host: localhost
-        port: 8080
+        port: 3000
         delay: 5
         timeout: 30
       tags: ['verify']
@@ -168,7 +168,8 @@
       debug:
         msg: 
           - "TinyAuth Server is running"
-          - "Internal URL: http://{{ ansible_default_ipv4.address }}:8080"
+          - "Internal URL: http://{{ ansible_default_ipv4.address }}:3000"
+          - "External URL: https://auth.{{ domain_name }}"
+          - "Default credentials: admin / admin"
           - "Access via Caddy reverse proxy for external access"
-          - "Configure Caddy to proxy auth.yourdomain.com to this server"
       tags: ['verify']

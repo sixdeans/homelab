@@ -1,0 +1,9 @@
+#!/bin/bash
+# TinyAuth startup script - using community script format
+
+set -a
+ENV_FILE="/opt/tinyauth/.env"
+[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+set +a
+
+exec /opt/tinyauth/bin/tinyauth
